@@ -1,0 +1,57 @@
+name: Verify Zenith app updates
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Callback checks to run
+        type: choice
+        options: [accept, unbound]
+        default: accept
+permissions: {}
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      id-token: write
+    steps:
+      - name: Verify signed callback and redelivery
+        env:
+          APP_ORIGIN: https://app.yourmums.house
+          VERIFY_MODE: ${{ inputs.mode }}
+        run: |
+          python3 - <<'PY'
+          import concurrent.futures, json, os, urllib.error, urllib.parse, urllib.request
+          origin = os.environ['APP_ORIGIN']
+          def token(audience):
+              url = os.environ['ACTIONS_ID_TOKEN_REQUEST_URL'] + '&audience=' + urllib.parse.quote(audience, safe='')
+              request = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)['value']
+          def submit(bearer, sha, label, expected):
+              body = json.dumps({'commitSha': sha}).encode()
+              headers = {'Content-Type': 'application/json'}
+              if bearer:
+                  headers['Authorization'] = 'Bearer ' + bearer
+              request = urllib.request.Request(origin + '/api/v1/developer/onboarding/update', data=body, headers=headers, method='POST')
+              try:
+                  with urllib.request.urlopen(request, timeout=90) as response:
+                      status = response.status
+              except urllib.error.HTTPError as error:
+                  status = error.code
+              print(f'{label}: HTTP {status}; expected {expected}', flush=True)
+              assert status in expected, f'{label} failed'
+              return status
+          sha = os.environ['GITHUB_SHA']
+          signed = token(origin)
+          submit('', sha, 'unsigned request', [401])
+          submit('invalid', sha, 'invalid signature', [401])
+          submit(token('https://wrong-audience.invalid'), sha, 'wrong audience', [401])
+          if os.environ['VERIFY_MODE'] == 'unbound':
+              submit(signed, sha, 'unbound repository', [403])
+          else:
+              submit(signed, 'a' * 40, 'stale commit', [409])
+              submit(signed, sha, 'signed request', [200, 204])
+              with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                  list(executor.map(lambda n: submit(signed, sha, f'redelivery {n}', [200, 204]), range(3)))
+          PY
