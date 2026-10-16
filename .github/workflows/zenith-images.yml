@@ -45,7 +45,10 @@ jobs:
           sha = os.environ['GITHUB_SHA']
           signed = token(origin)
           submit('', sha, 'unsigned request', [401])
-          submit('invalid', sha, 'invalid signature', [401])
+          submit('invalid', sha, 'malformed bearer', [401])
+          header, payload, signature = signed.split('.')
+          tampered = header + '.' + payload + '.' + ('A' if signature[0] != 'A' else 'B') + signature[1:]
+          submit(tampered, sha, 'tampered JWT signature', [401])
           submit(token('https://wrong-audience.invalid'), sha, 'wrong audience', [401])
           if os.environ['VERIFY_MODE'] == 'unbound':
               submit(signed, sha, 'unbound repository', [403])
