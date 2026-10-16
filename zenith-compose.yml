@@ -1,6 +1,6 @@
 services:
   app:
-    image: "ghcr.io/logykk/zenith-pr840-e2e-20261013@sha256:f1b1becfbabbf18f5be207b91dac0258a60c908cc964f02dc312ced5413ff8f9"
+    image: "ghcr.io/logykk/zenith-pr840-e2e-20261013:verified@sha256:f1b1becfbabbf18f5be207b91dac0258a60c908cc964f02dc312ced5413ff8f9"
     x-zenith-image:
       source: "ghcr.io/logykk/zenith-pr840-e2e-20261013@sha256:f1b1becfbabbf18f5be207b91dac0258a60c908cc964f02dc312ced5413ff8f9"
       last_pin: "ghcr.io/logykk/zenith-pr840-e2e-20261013@sha256:f1b1becfbabbf18f5be207b91dac0258a60c908cc964f02dc312ced5413ff8f9"
